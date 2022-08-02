@@ -37,7 +37,7 @@ class APIDisassembleRequest(APIRequest):
     @server_side
     def dispatch(self):
         try:
-            if self.address == None:
+            if self.address is None:
                 pc_name, self.address = voltron.debugger.program_counter(target_id=self.target_id)
             if self.use_capstone:
                 disasm = voltron.debugger.disassemble_capstone(target_id=self.target_id, address=self.address,
@@ -56,7 +56,7 @@ class APIDisassembleRequest(APIRequest):
         except TargetBusyException:
             res = APITargetBusyErrorResponse()
         except Exception as e:
-            msg = "Unhandled exception {} disassembling: {}".format(type(e), e)
+            msg = f"Unhandled exception {type(e)} disassembling: {e}"
             log.exception(msg)
             res = APIErrorResponse(code=0, message=msg)
 

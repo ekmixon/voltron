@@ -29,7 +29,7 @@ class CommandView (TerminalView):
         [res] = results
 
         # Set up header and error message if applicable
-        self.title = '[cmd:' + self.args.command + ']'
+        self.title = f'[cmd:{self.args.command}]'
 
         if res and res.is_success:
             if get_lexer_by_name and self.args.lexer:
@@ -37,12 +37,12 @@ class CommandView (TerminalView):
                     lexer = get_lexer_by_name(self.args.lexer, stripall=True)
                     self.body = pygments.highlight(res.output, lexer, pygments.formatters.TerminalFormatter())
                 except Exception as e:
-                    log.warning('Failed to highlight view contents: ' + repr(e))
+                    log.warning(f'Failed to highlight view contents: {repr(e)}')
                     self.body = res.output
             else:
                 self.body = res.output
         else:
-            log.error("Error executing command: {}".format(res.message))
+            log.error(f"Error executing command: {res.message}")
             self.body = self.colour(res.message, 'red')
 
         # Call parent's render method

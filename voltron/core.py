@@ -179,7 +179,7 @@ class Server(object):
         log.debug("Stopping listeners")
         self.queue_lock.acquire()
         for s in self.listeners:
-            log.debug("Stopping {}".format(s))
+            log.debug(f"Stopping {s}")
             s.shutdown()
             s.socket.close()
         self.cancel_queue()
@@ -203,15 +203,15 @@ class Server(object):
                     req = APIRequest(data=data)
                 except Exception as e:
                     req = None
-                    log.exception("Exception raised while parsing API request: {} {}".format(type(e), e))
+                    log.exception(f"Exception raised while parsing API request: {type(e)} {e}")
 
                 if req:
                     # instantiate the request class
                     try:
-                        log.debug("data = {}".format(data))
+                        log.debug(f"data = {data}")
                         req = api_request(req.request, data=data)
                     except Exception as e:
-                        log.exception("Exception raised while creating API request: {} {}".format(type(e), e))
+                        log.exception(f"Exception raised while creating API request: {type(e)} {e}")
                         req = None
                     if not req:
                         res = APIPluginNotFoundErrorResponse()
@@ -231,11 +231,7 @@ class Server(object):
                     # thread (or timed out). We have to do it this way because GDB sucks.
                     req.wait()
 
-                    if req.timed_out:
-                        res = APITimedOutErrorResponse()
-                    else:
-                        res = req.response
-
+                    res = APITimedOutErrorResponse() if req.timed_out else req.response
                     # Remove the request from the queue
                     self.queue_lock.acquire()
                     if req in self.queue:
@@ -255,7 +251,7 @@ class Server(object):
         """
         q = list(self.queue)
         self.queue = []
-        log.debug("Canceling requests: {}".format(q))
+        log.debug(f"Canceling requests: {q}")
         for req in q:
             req.response = APIServerNotRunningErrorResponse()
         for req in q:
@@ -271,7 +267,7 @@ class Server(object):
         q = list(self.queue)
         self.queue = []
         self.queue_lock.release()
-        log.debug("Dispatching requests: {}".format(q))
+        log.debug(f"Dispatching requests: {q}")
         for req in q:
             req.response = self.dispatch_request(req)
         for req in q:
@@ -281,7 +277,7 @@ class Server(object):
         """
         Dispatch a request object.
         """
-        log.debug("Dispatching request: {}".format(str(req)))
+        log.debug(f"Dispatching request: {str(req)}")
 
         # make sure it's valid
         res = None
@@ -295,11 +291,11 @@ class Server(object):
             try:
                 res = req.dispatch()
             except Exception as e:
-                msg = "Exception raised while dispatching request: {}".format(repr(e))
+                msg = f"Exception raised while dispatching request: {repr(e)}"
                 log.exception(msg)
                 res = APIGenericErrorResponse(msg)
 
-        log.debug("Response: {}".format(str(res)))
+        log.debug(f"Response: {str(res)}")
 
         return res
 
@@ -314,11 +310,11 @@ class VoltronWSGIServer(BaseWSGIServer):
 
     def finish_request(self, *args):
         self.clients.append(args[0])
-        log.debug("finish_request({})".format(args))
+        log.debug(f"finish_request({args})")
         try:
             super(VoltronWSGIServer, self).finish_request(*args)
         except socket.error as e:
-            log.error("Error in finish_request: {}".format(e))
+            log.error(f"Error in finish_request: {e}")
 
     def shutdown(self):
         super(VoltronWSGIServer, self).shutdown()
@@ -401,11 +397,11 @@ class Client(object):
         if url:
             self.url = url
         elif sockfile:
-            self.url = 'http+unix://{}/api/request'.format(sockfile.replace('/', '%2F'))
+            self.url = f"http+unix://{sockfile.replace('/', '%2F')}/api/request"
         elif voltron.config.view.api_url:
             self.url = voltron.config.view.api_url
         else:
-            self.url = 'http://{}:{}/api/request'.format(host, port)
+            self.url = f'http://{host}:{port}/api/request'
         self.url = self.url.replace('~', os.path.expanduser('~').replace('/', '%2f'))
         self.callback = callback
         self.build_requests = build_requests
@@ -429,13 +425,13 @@ class Client(object):
         res = APIEmptyResponseErrorResponse()
 
         # perform the request
-        log.debug("Client sending request: " + str(request))
+        log.debug(f"Client sending request: {str(request)}")
         response = self.session.post(self.url, data=str(request))
         data = response.text
         if response.status_code != 200:
             res = APIGenericErrorResponse(response.text)
         elif data and len(data) > 0:
-            log.debug('Client received message: ' + data)
+            log.debug(f'Client received message: {data}')
 
             try:
                 # parse the response data
@@ -454,8 +450,8 @@ class Client(object):
                         # didn't find a plugin, just return the generic APIResponse we already generated
                         res = generic_response
             except Exception as e:
-                log.exception('Exception parsing message: ' + str(e))
-                log.error('Invalid message: ' + data)
+                log.exception(f'Exception parsing message: {str(e)}')
+                log.error(f'Invalid message: {data}')
         else:
             res = APIEmptyResponseErrorResponse()
 
@@ -499,10 +495,7 @@ class Client(object):
         # create a request
         req = api_request(request_type, *args, **kwargs)
 
-        # send it
-        res = self.send_request(req)
-
-        return res
+        return self.send_request(req)
 
     def update(self):
         """

@@ -29,7 +29,7 @@ class APIBacktraceRequest(APIRequest):
         except NoSuchTargetException:
             res = APINoSuchTargetErrorResponse()
         except Exception as e:
-            msg = "Exception getting backtrace: {}".format(repr(e))
+            msg = f"Exception getting backtrace: {repr(e)}"
             log.exception(msg)
             res = APIGenericErrorResponse(msg)
 

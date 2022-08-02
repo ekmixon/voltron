@@ -427,7 +427,12 @@ class RegisterView (TerminalView):
         if self.args.orientation is not None:
             self.config.orientation = self.args.orientation
         if self.args.sections is not None:
-            a = filter(lambda x: 'no_' + x not in self.args.sections and not x.startswith('no_'), list(self.config.sections) + self.args.sections)
+            a = filter(
+                lambda x: f'no_{x}' not in self.args.sections
+                and not x.startswith('no_'),
+                list(self.config.sections) + self.args.sections,
+            )
+
             config_sections = []
             for sec in a:
                 if sec not in config_sections:

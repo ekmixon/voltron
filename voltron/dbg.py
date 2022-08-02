@@ -126,7 +126,7 @@ class DebuggerAdaptor(object):
         try:
             target = self.target(target_id=target_id)
         except Exception as e:
-            log.error("Exception checking if target exists: {} {}".format(type(e), e))
+            log.error(f"Exception checking if target exists: {type(e)} {e}")
             return False
         return target is not None
 
@@ -240,7 +240,7 @@ class DebuggerCommand (object):
                 print("Debug logging disabled")
             else:
                 enabled = "enabled" if log.getEffectiveLevel() == logging.DEBUG else "disabled"
-                print("Debug logging is currently " + enabled)
+                print(f"Debug logging is currently {enabled}")
         elif 'init' in command:
             self.register_hooks()
         elif 'stopped' in command or 'update' in command:

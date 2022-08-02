@@ -99,7 +99,8 @@ def test_targets():
 def test_memory():
     data = requests.get('http://localhost:5555/api/registers').text
     res = api_response('registers', data=data)
-    url = 'http://localhost:5555/api/memory?address={}&length=64'.format(res.registers['rip'])
+    url = f"http://localhost:5555/api/memory?address={res.registers['rip']}&length=64"
+
     data = requests.get(url).text
     res = api_response('memory', data=data)
     assert res.is_success

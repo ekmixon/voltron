@@ -72,10 +72,7 @@ def setup_logging(logname=None):
 
     # enable the debug_file in all the loggers if the config says to
     if config and 'general' in config and config['general']['debug_logging']:
-        if logname:
-            filename = '{}.log'.format(logname)
-        else:
-            filename = 'voltron.log'
+        filename = f'{logname}.log' if logname else 'voltron.log'
         for name in LOG_CONFIG['loggers']:
             h = logging.FileHandler(voltron.env.voltron_dir.path_to(filename), delay=True)
             h.setFormatter(logging.Formatter(fmt="%(asctime)s %(levelname)-7s %(filename)12s:%(lineno)-4s %(funcName)20s -- %(message)s"))

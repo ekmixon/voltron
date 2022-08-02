@@ -65,10 +65,9 @@ class APIMemoryRequest(APIRequest):
             if self.address:
                 addr = self.address
             elif self.command:
-                output = voltron.debugger.command(self.command)
-                if output:
+                if output := voltron.debugger.command(self.command):
                     for item in reversed(output.split()):
-                        log.debug("checking item: {}".format(item))
+                        log.debug(f"checking item: {item}")
                         try:
                             addr = int(item)
                             break
@@ -82,11 +81,7 @@ class APIMemoryRequest(APIRequest):
                 regs = voltron.debugger.registers(registers=[self.register])
                 addr = list(regs.values())[0]
             if self.offset:
-                if self.words:
-                    addr += self.offset * target['addr_size']
-                else:
-                    addr += self.offset
-
+                addr += self.offset * target['addr_size'] if self.words else self.offset
             # read memory
             memory = voltron.debugger.memory(address=int(addr), length=int(self.length), target_id=int(self.target_id))
 
@@ -116,7 +111,7 @@ class APIMemoryRequest(APIRequest):
         except NoSuchTargetException:
             res = APINoSuchTargetErrorResponse()
         except Exception as e:
-            msg = "Exception getting memory from debugger: {}".format(repr(e))
+            msg = f"Exception getting memory from debugger: {repr(e)}"
             log.exception(msg)
             res = APIGenericErrorResponse(msg)
 

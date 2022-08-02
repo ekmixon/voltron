@@ -47,7 +47,7 @@ class ExampleView(TerminalView):
             lines = map(lambda x: '{:3}: {:016X}'.format(x, res.registers[x]), reg_list)
             self.body = '\n'.join(lines)
         else:
-            self.body = "Failed to get registers: {}".format(res)
+            self.body = f"Failed to get registers: {res}"
 
         # Set the title and info
         self.title = '[example]'

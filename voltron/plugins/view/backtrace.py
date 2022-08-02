@@ -25,7 +25,7 @@ class BacktraceView (TerminalView):
             # Get the command output
             self.body = res.output
         else:
-            log.error("Error getting backtrace: {}".format(res.message))
+            log.error(f"Error getting backtrace: {res.message}")
             self.body = self.colour(res.message, 'red')
 
         # Call parent's render method

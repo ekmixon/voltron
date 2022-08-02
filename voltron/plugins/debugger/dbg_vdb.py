@@ -82,9 +82,7 @@ if HAVE_VDB:
                 "state:     "stopped"  # state
             }
             """
-            d = {}
-            d["id"] = 0
-            d["state"] = self._state()
+            d = {"id": 0, "state": self._state()}
             d["file"] = self._vdb.getTrace().metadata['ExeName']
             d["arch"] = self.get_arch()
             d['byte_order'] = self.get_byte_order()
@@ -130,22 +128,19 @@ if HAVE_VDB:
             """
             arch = self.get_arch()
 
-            if arch in self.reg_names:
-                if 'pc' in registers:
-                    registers.remove('pc')
-                    registers.append(self.reg_names[arch]['pc'])
-                if 'sp' in registers:
-                    registers.remove('sp')
-                    registers.append(self.reg_names[arch]['sp'])
-            else:
-                raise Exception("Unsupported architecture: {}".format(target['arch']))
+            if arch not in self.reg_names:
+                raise Exception(f"Unsupported architecture: {target['arch']}")
 
+            if 'pc' in registers:
+                registers.remove('pc')
+                registers.append(self.reg_names[arch]['pc'])
+            if 'sp' in registers:
+                registers.remove('sp')
+                registers.append(self.reg_names[arch]['sp'])
             if registers != []:
-                regs = {}
-                for reg in registers:
-                    regs[reg] = self.get_register(reg)
+                regs = {reg: self.get_register(reg) for reg in registers}
             else:
-                log.debug('Getting registers for arch {}'.format(arch))
+                log.debug(f'Getting registers for arch {arch}')
                 if arch == "x86_64":
                     regs = self.get_registers_x86_64()
                 elif arch == "x86":
@@ -166,12 +161,11 @@ if HAVE_VDB:
             `target_id` is ignored.
             """
             arch = self.get_arch()
-            if arch in self.reg_names:
-                sp_name = self.reg_names[arch]['sp']
-                sp = self.get_register(sp_name)
-            else:
+            if arch not in self.reg_names:
                 raise UnknownArchitectureException()
 
+            sp_name = self.reg_names[arch]['sp']
+            sp = self.get_register(sp_name)
             return sp_name, sp
 
         @validate_busy
@@ -183,12 +177,11 @@ if HAVE_VDB:
             `target_id` is ignored.
             """
             arch = self.get_arch()
-            if arch in self.reg_names:
-                pc_name = self.reg_names[arch]['pc']
-                pc = self.get_register(pc_name)
-            else:
+            if arch not in self.reg_names:
                 raise UnknownArchitectureException()
 
+            pc_name = self.reg_names[arch]['pc']
+            pc = self.get_register(pc_name)
             return pc_name, pc
 
         @validate_busy
@@ -240,7 +233,7 @@ if HAVE_VDB:
             length = 0
             t = self._vdb.getTrace()
             arch = self._vdb.arch.getArchId()
-            for i in xrange(count):
+            for _ in xrange(count):
                 op = t.parseOpcode(address + length, arch=arch)
                 length += op.size
             return length
@@ -256,7 +249,7 @@ if HAVE_VDB:
             current program counter is used.
             `count` is the number of instructions to disassemble.
             """
-            if address == None:
+            if address is None:
                 pc_name, address = self.program_counter(target_id=target_id)
 
             length = self._get_n_opcodes_length(address, count)
@@ -276,9 +269,7 @@ if HAVE_VDB:
                     c = self.memory(address + i, 1)[0]
                 except FailedToReadMemoryError:
                     break
-                if ord(c) == 0:
-                    break
-                elif c not in string.printable:
+                if ord(c) == 0 or c not in string.printable:
                     break
                 else:
                     cs.append(c)
@@ -309,9 +300,7 @@ if HAVE_VDB:
                     break
 
                 c = b[0]
-                if ord(c) == 0:
-                    break
-                elif c not in string.printable:
+                if ord(c) == 0 or c not in string.printable:
                     break
                 else:
                     cs.append(c)
@@ -345,7 +334,7 @@ if HAVE_VDB:
                     print(type(e))
                     print(e.__class__.__name__)
                     break
-                log.debug("read mem: {}".format(mem))
+                log.debug(f"read mem: {mem}")
                 (ptr,) = struct.unpack(fmt, mem)
                 if ptr in chain:
                     break
@@ -358,7 +347,7 @@ if HAVE_VDB:
             output = self._vdb.reprPointer(addr)
             if "Who knows?!?!!?" not in output:
                 chain.append(('symbol', output))
-                log.debug("symbol context: {}".format(str(chain[-1])))
+                log.debug(f"symbol context: {str(chain[-1])}")
             else:
                 log.debug("no symbol context")
                 try:
@@ -369,7 +358,7 @@ if HAVE_VDB:
                     except NotAStringError:
                         pass
 
-            log.debug("chain: {}".format(chain))
+            log.debug(f"chain: {chain}")
             return chain
 
         @lock_host
@@ -424,13 +413,9 @@ if HAVE_VDB:
             Get the state of a given target. Internal use.
             """
             if not self._vdb.getTrace().isAttached():
-                state = "invalid"
+                return "invalid"
             else:
-                if self._vdb.getTrace().isRunning():
-                    state = "running"
-                else:
-                    state = "stopped"
-            return state
+                return "running" if self._vdb.getTrace().isRunning() else "stopped"
 
         def get_registers(self):
             return self._vdb.getTrace().getRegisters()
@@ -448,18 +433,10 @@ if HAVE_VDB:
             return self.get_registers()
 
         def get_registers_sse(self, num=8):
-            sse = {}
-            for k, v in self.get_registers().items():
-                if k.startswith("xmm"):
-                    sse[k] = v
-            return sse
+            return {k: v for k, v in self.get_registers().items() if k.startswith("xmm")}
 
         def get_registers_fpu(self):
-            fpu = {}
-            for k, v in self.get_registers().items():
-                if k.startswith("st"):
-                    fpu[k] = v
-            return fpu
+            return {k: v for k, v in self.get_registers().items() if k.startswith("st")}
 
         def get_next_instruction(self):
             dis = self.disassemble(address=self.program_counter()[1], count=1)
@@ -501,13 +478,9 @@ if HAVE_VDB:
             self._vdb.deregisterNotifier(vtrace.NOTIFY_ALL, self)
 
         def notify(self, event, trace):
-            if event == self._vtrace.NOTIFY_DETACH:
+            if event in [self._vtrace.NOTIFY_DETACH, self._vtrace.NOTIFY_EXIT]:
                 self.exit_handler(event)
-            elif event == self._vtrace.NOTIFY_EXIT:
-                self.exit_handler(event)
-            elif event == self._vtrace.NOTIFY_BREAK:
-                self.stop_handler(event)
-            elif event == self._vtrace.NOTIFY_STEP:
+            elif event in [self._vtrace.NOTIFY_BREAK, self._vtrace.NOTIFY_STEP]:
                 self.stop_handler(event)
             elif event == self._vtrace.NOTIFY_CONTINUE:
                 self.cont_handler(event)

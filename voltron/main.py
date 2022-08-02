@@ -46,8 +46,14 @@ def main(debugger=None):
     try:
         inst.run()
     except Exception as e:
-        log.exception("Exception running module {}: {}".format(inst.__class__.__name__, traceback.format_exc()))
-        print("Encountered an exception while running the view '{}':\n{}".format(inst.__class__.__name__, traceback.format_exc()))
+        log.exception(
+            f"Exception running module {inst.__class__.__name__}: {traceback.format_exc()}"
+        )
+
+        print(
+            f"Encountered an exception while running the view '{inst.__class__.__name__}':\n{traceback.format_exc()}"
+        )
+
     except KeyboardInterrupt:
         suppress_exit_log = True
     inst.cleanup()

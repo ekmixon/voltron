@@ -11,9 +11,9 @@ class REPLClient(Client):
             if res.is_success:
                 return res.registers[key]
             else:
-                print("Error getting register: {}".format(res.message))
+                print(f"Error getting register: {res.message}")
         except Exception as e:
-            print("Exception getting register: {}".format(repr(e)))
+            print(f"Exception getting register: {repr(e)}")
 
     def __getitem__(self, key):
         try:
@@ -30,9 +30,9 @@ class REPLClient(Client):
             if res.is_success:
                 return res.memory
             else:
-                print("Error reading memory: {}".format(res.message))
+                print(f"Error reading memory: {res.message}")
         except Exception as e:
-            print("Exception reading memory: {}".format(repr(e)))
+            print(f"Exception reading memory: {repr(e)}")
 
     def __setitem__(self, key, value):
         try:
@@ -49,9 +49,9 @@ class REPLClient(Client):
             if res.is_success:
                 return None
             else:
-                print("Error writing memory: {}".format(res.message))
+                print(f"Error writing memory: {res.message}")
         except Exception as e:
-            print("Exception writing memory: {}".format(repr(e)))
+            print(f"Exception writing memory: {repr(e)}")
 
     def __call__(self, command):
         try:
@@ -59,9 +59,9 @@ class REPLClient(Client):
             if res.is_success:
                 return res.output
             else:
-                print("Error executing command: {}".format(res.message))
+                print(f"Error executing command: {res.message}")
         except Exception as e:
-            print("Exception executing command: {}".format(repr(e)))
+            print(f"Exception executing command: {repr(e)}")
 
 
 V = REPLClient()

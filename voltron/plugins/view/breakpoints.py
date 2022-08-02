@@ -49,17 +49,14 @@ class BreakpointsView (TerminalView):
                 for location in bp['locations']:
                     # add location data to formatting dict and format the row
                     d.update(location)
-                    if pc == d['address']:
-                        d['hit'] = self.config.format.hit.format(t=term)
-                    else:
-                        d['hit'] = ''
+                    d['hit'] = self.config.format.hit.format(t=term) if pc == d['address'] else ''
                     f = self.config.format.row.format(**d)
                     fmtd.append(f)
                     d['id'] = '   '
 
             self.body = '\n'.join(fmtd)
         else:
-            log.error("Error getting breakpoints: {}".format(b_res.message))
+            log.error(f"Error getting breakpoints: {b_res.message}")
             self.body = self.colour(b_res.message, 'red')
 
         super(BreakpointsView, self).render(results)

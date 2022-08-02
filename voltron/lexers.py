@@ -5,6 +5,8 @@ from pygments.lexers import get_lexer_by_name
 from pygments.token import *
 
 
+
+
 class DisassemblyLexer(RegexLexer):
     """
     For Nasm (Intel) disassembly from LLDB.
@@ -33,20 +35,24 @@ class DisassemblyLexer(RegexLexer):
     flags = re.IGNORECASE | re.MULTILINE
     tokens = {
         'root': [
-            (identifier + '`' + identifier, Name.Function),
+            (f'{identifier}`{identifier}', Name.Function),
             ('->', Generic.Prompt),
             include('whitespace'),
             (r'^\s*%', Comment.Preproc, 'preproc'),
-            (identifier + ':', Name.Label),
-            (r'(%s)(\s+)(equ)' % identifier,
-                bygroups(Name.Constant, Keyword.Declaration, Keyword.Declaration),
-                'instruction-args'),
+            (f'{identifier}:', Name.Label),
+            (
+                r'(%s)(\s+)(equ)' % identifier,
+                bygroups(
+                    Name.Constant, Keyword.Declaration, Keyword.Declaration
+                ),
+                'instruction-args',
+            ),
             (declkw, Keyword.Declaration, 'instruction-args'),
             (identifier, Keyword.Declaration, 'instruction-args'),
-            (r' *' + hexn, Name.Label),
+            (f' *{hexn}', Name.Label),
             (r'[:]', Text),
             (r'^->', Error),
-            (r'[\r\n]+', Text)
+            (r'[\r\n]+', Text),
         ],
         'instruction-args': [
             (register, Name.Builtin),
@@ -59,7 +65,7 @@ class DisassemblyLexer(RegexLexer):
             include('punctuation'),
             (identifier, Name.Variable),
             (r'[\r\n]+', Text, '#pop'),
-            include('whitespace')
+            include('whitespace'),
         ],
         'preproc': [
             (r'[^;\n]+', Comment.Preproc),
@@ -70,16 +76,18 @@ class DisassemblyLexer(RegexLexer):
             (r'\n', Text),
             (r'[ \t]+', Text),
             (r';.*', Comment.Single),
-            (r'#.*', Comment.Single)
+            (r'#.*', Comment.Single),
         ],
         'punctuation': [
             (r'[,():\[\]]+', Punctuation),
             (r'[&|^<>+*/%~-]+', Operator),
             (r'[$]+', Keyword.Constant),
             (wordop, Operator.Word),
-            (type, Keyword.Type)
+            (type, Keyword.Type),
         ],
     }
+
+
 
 
 class LLDBIntelLexer(DisassemblyLexer):
@@ -110,6 +118,8 @@ class VDBATTLexer(DisassemblyLexer):
 class CapstoneIntelLexer(DisassemblyLexer):
     name = 'Capstone Intel syntax disassembly'
     aliases = ['capstone_intel']
+
+
 
 
 class VDBIntelLexer(RegexLexer):
@@ -146,17 +156,23 @@ class VDBIntelLexer(RegexLexer):
     flags = re.IGNORECASE | re.MULTILINE
     tokens = {
         'root': [
-            (r'^(%s)(%s)(%s)(: )(%s)(%s)' % (register, space, hexn, hexr, space),
-             bygroups(Name.Builtin, Text, Name.Label, Text, Number.Hex, Text),
-             "instruction"),
-            (r'^(%s)(%s)(: )(%s)(%s)' % (space, hexn, hexr, space),
-             bygroups(Text, Name.Label, Text, Number.Hex, Text),
-             "instruction")
+            (
+                f'^({register})({space})({hexn})(: )({hexr})({space})',
+                bygroups(
+                    Name.Builtin, Text, Name.Label, Text, Number.Hex, Text
+                ),
+                "instruction",
+            ),
+            (
+                f'^({space})({hexn})(: )({hexr})({space})',
+                bygroups(Text, Name.Label, Text, Number.Hex, Text),
+                "instruction",
+            ),
         ],
         'instruction': [
             (space, Text),
             (r"(rep[a-z]*)( )", bygroups(Name.Function, Text)),
-            (r"(%s)" % identifier, Name.Function, ("#pop", "instruction-args")),
+            (f"({identifier})", Name.Function, ("#pop", "instruction-args")),
         ],
         'instruction-args': [
             (space, Text),
@@ -190,9 +206,11 @@ class VDBIntelLexer(RegexLexer):
             (r'[&|^<>+*/%~-]+', Operator),
             (r'[$]+', Keyword.Constant),
             (wordop, Operator.Word),
-            (type, Keyword.Type)
+            (type, Keyword.Type),
         ],
     }
+
+
 
 
 class WinDbgIntelLexer(RegexLexer):

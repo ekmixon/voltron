@@ -46,7 +46,7 @@ if in_windbg:
                 [windbg] = [line for line in pykd.dbgCommand('version').split('\n') if 'Microsoft (R) Windows Debugger Version' in line]
             except:
                 windbg = 'WinDbg <unknown>'
-            return '{}, {}'.format(windbg, 'pykd {}'.format(pykd.version))
+            return f'{windbg}, pykd {pykd.version}'
 
         def _target(self, target_id=0):
             """
@@ -61,8 +61,7 @@ if in_windbg:
             }
             """
             # get target properties
-            d = {}
-            d["id"] = pykd.getCurrentProcessId()
+            d = {"id": pykd.getCurrentProcessId()}
             d["num"] = d['id']
 
             # get target state
@@ -116,24 +115,22 @@ if in_windbg:
             """
             arch = self.get_arch()
 
-            # if we got 'sp' or 'pc' in registers, change it to whatever the right name is for the current arch
-            if arch in self.reg_names:
-                if 'pc' in registers:
-                    registers.remove('pc')
-                    registers.append(self.reg_names[arch]['pc'])
-                if 'sp' in registers:
-                    registers.remove('sp')
-                    registers.append(self.reg_names[arch]['sp'])
-            else:
-                raise Exception("Unsupported architecture: {}".format(target['arch']))
+            if arch not in self.reg_names:
+                raise Exception(f"Unsupported architecture: {target['arch']}")
 
+            if 'pc' in registers:
+                registers.remove('pc')
+                registers.append(self.reg_names[arch]['pc'])
+            if 'sp' in registers:
+                registers.remove('sp')
+                registers.append(self.reg_names[arch]['sp'])
+            vals = {}
             # get registers
             if registers != []:
-                vals = {}
                 for reg in registers:
                     vals[reg] = pykd.reg(reg)
             else:
-                log.debug('Getting registers for arch {}'.format(arch))
+                log.debug(f'Getting registers for arch {arch}')
                 if arch == "x86_64":
                     reg_names = ['rax', 'rbx', 'rcx', 'rdx', 'rbp', 'rsp', 'rdi', 'rsi', 'rip', 'r8', 'r9', 'r10',
                                  'r11', 'r12', 'r13', 'r14', 'r15', 'cs', 'ds', 'es', 'fs', 'gs', 'ss']
@@ -143,12 +140,11 @@ if in_windbg:
                 else:
                     raise UnknownArchitectureException()
 
-                vals = {}
                 for reg in reg_names:
                     try:
                         vals[reg] = pykd.reg(reg)
                     except:
-                        log.debug('Failed getting reg: ' + reg)
+                        log.debug(f'Failed getting reg: {reg}')
                         vals[reg] = 'N/A'
 
                 # Get flags
@@ -160,7 +156,7 @@ if in_windbg:
 
                 # Get SSE registers
                 try:
-                    vals.update(self.get_registers_sse(16))
+                    vals |= self.get_registers_sse(16)
                 except:
                     log.exception("Failed to get SSE registers")
 
@@ -180,12 +176,11 @@ if in_windbg:
             Get the value of the stack pointer register.
             """
             arch = self.get_arch()
-            if arch in self.reg_names:
-                sp_name = self.reg_names[arch]['sp']
-                sp = pykd.reg(sp_name)
-            else:
+            if arch not in self.reg_names:
                 raise UnknownArchitectureException()
 
+            sp_name = self.reg_names[arch]['sp']
+            sp = pykd.reg(sp_name)
             return sp_name, sp
 
         @validate_busy
@@ -196,12 +191,11 @@ if in_windbg:
             Get the value of the program counter register.
             """
             arch = self.get_arch()
-            if arch in self.reg_names:
-                pc_name = self.reg_names[arch]['pc']
-                pc = pykd.reg(pc_name)
-            else:
+            if arch not in self.reg_names:
                 raise UnknownArchitectureException()
 
+            pc_name = self.reg_names[arch]['pc']
+            pc = pykd.reg(pc_name)
             return pc_name, pc
 
         @validate_busy
@@ -216,9 +210,7 @@ if in_windbg:
             """
             # read memory
             log.debug('Reading 0x{:x} bytes of memory at 0x{:x}'.format(length, address))
-            memory = array.array('B', pykd.loadBytes(address, length)).tostring()
-
-            return memory
+            return array.array('B', pykd.loadBytes(address, length)).tostring()
 
         @validate_busy
         @validate_target
@@ -254,10 +246,7 @@ if in_windbg:
             if address is None:
                 pc_name, address = self.program_counter(target_id=target_id)
 
-            # disassemble
-            output = pykd.dbgCommand('u 0x{:x} l{}'.format(address, count))
-
-            return output
+            return pykd.dbgCommand('u 0x{:x} l{}'.format(address, count))
 
         @validate_busy
         @validate_target
@@ -272,7 +261,7 @@ if in_windbg:
             chain = []
 
             # recursively dereference
-            for i in range(0, self.max_deref):
+            for _ in range(self.max_deref):
                 try:
                     [ptr] = pykd.loadPtrs(addr, 1)
                     if ptr in chain:
@@ -316,7 +305,7 @@ if in_windbg:
                             output = pykd.loadCStr(addr)
                             chain.append(('string', output))
 
-            log.debug("chain: {}".format(chain))
+            log.debug(f"chain: {chain}")
             return chain
 
         @lock_host
@@ -365,7 +354,7 @@ if in_windbg:
             """
             breakpoints = []
 
-            for i in range(0, pykd.getNumberBreakpoints()):
+            for i in range(pykd.getNumberBreakpoints()):
                 b = pykd.getBp(i)
                 addr = b.getOffset()
 
@@ -373,9 +362,7 @@ if in_windbg:
                 try:
                     name = pykd.findSymbol(addr)
                 except:
-                    log.exception("No symbol found for address {}".format(addr))
-                    pass
-
+                    log.exception(f"No symbol found for address {addr}")
                 breakpoints.append({
                     'id':           i,
                     'enabled':      True,
@@ -410,19 +397,17 @@ if in_windbg:
             """
             s = pykd.getExecutionStatus()
             if s == pykd.executionStatus.Break:
-                state = 'stopped'
+                return 'stopped'
             elif s == pykd.executionStatus.Go:
-                state = 'running'
+                return 'running'
             else:
-                state = 'invalid'
-
-            return state
+                return 'invalid'
 
         def get_registers_sse(self, num=8):
             regs = {}
-            for i in range(0, 16):
+            for i in range(16):
                 try:
-                    reg = 'xmm{}'.format(i)
+                    reg = f'xmm{i}'
                     regs[reg] = pykd.reg(reg)
                 except:
                     break
@@ -430,9 +415,9 @@ if in_windbg:
 
         def get_registers_fpu(self):
             regs = {}
-            for i in range(0, 8):
+            for i in range(8):
                 try:
-                    reg = 'st{}'.format(i)
+                    reg = f'st{i}'
                     regs[reg] = pykd.reg(reg)
                 except:
                     break
@@ -443,11 +428,7 @@ if in_windbg:
 
         def get_arch(self):
             t = pykd.getCPUType()
-            if t == pykd.CPUType.I386:
-                return 'x86'
-            else:
-                return 'x86_64'
-            return arch
+            return 'x86' if t == pykd.CPUType.I386 else 'x86_64'
 
         def get_addr_size(self):
             arch = self.get_arch()

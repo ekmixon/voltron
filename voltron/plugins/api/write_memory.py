@@ -51,7 +51,7 @@ class APIWriteMemoryRequest(APIRequest):
         except NoSuchTargetException:
             res = APINoSuchTargetErrorResponse()
         except Exception as e:
-            msg = "Exception writing memory in debugger: {}".format(repr(e))
+            msg = f"Exception writing memory in debugger: {repr(e)}"
             log.exception(msg)
             res = APIGenericErrorResponse(msg)
 

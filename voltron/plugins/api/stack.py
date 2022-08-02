@@ -44,7 +44,7 @@ class APIStackRequest(APIRequest):
         except TargetBusyException:
             res = APITargetBusyErrorResponse()
         except Exception as e:
-            msg = "Unhandled exception {} reading stack: {}".format(type(e), e)
+            msg = f"Unhandled exception {type(e)} reading stack: {e}"
             log.exception(msg)
             res = APIErrorResponse(code=0, message=msg)
 

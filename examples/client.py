@@ -54,9 +54,9 @@ def main():
             if res.is_success:
                 print("Instruction pointer is: 0x{:X}".format(res.registers['rip']))
             else:
-                print("Failed to get registers: {}".format(res))
+                print(f"Failed to get registers: {res}")
         else:
-            print("Error waiting for the debugger to stop: {}".format(res))
+            print(f"Error waiting for the debugger to stop: {res}")
             break
 
 

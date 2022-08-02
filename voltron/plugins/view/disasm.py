@@ -49,19 +49,19 @@ class DisasmView(TerminalView):
             # Highlight output
             try:
                 host = 'capstone' if self.args.use_capstone else res.host
-                lexer = get_lexer_by_name('{}_{}'.format(host, res.flavor))
+                lexer = get_lexer_by_name(f'{host}_{res.flavor}')
                 formatter = pygments.formatters.get_formatter_by_name(
                     self.config.format.pygments_formatter,
                     style=self.config.format.pygments_style)
                 disasm = pygments.highlight(disasm, lexer, formatter)
             except Exception as e:
-                log.warning('Failed to highlight disasm: ' + str(e))
+                log.warning(f'Failed to highlight disasm: {str(e)}')
                 log.info(self.config.format)
 
             # Build output
             self.body = disasm.rstrip()
         else:
-            log.error("Error disassembling: {}".format(res.message))
+            log.error(f"Error disassembling: {res.message}")
             self.body = self.colour(res.message, 'red')
 
         # Call parent's render method

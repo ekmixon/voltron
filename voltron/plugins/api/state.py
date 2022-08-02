@@ -25,7 +25,7 @@ class APIStateRequest(APIRequest):
     def dispatch(self):
         try:
             state = voltron.debugger.state(target_id=self.target_id)
-            log.debug("Got state from debugger: {}".format(state))
+            log.debug(f"Got state from debugger: {state}")
             res = APIStateResponse()
             res.state = state
         except TargetBusyException:

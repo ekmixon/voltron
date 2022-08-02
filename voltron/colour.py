@@ -42,7 +42,7 @@ def get_esc(name):
 def fmt_esc(name):
     return ESC_TEMPLATE.format(escapes()[name])
 
-FMT_ESCAPES = dict((k, fmt_esc(k)) for k in ESCAPES)
+FMT_ESCAPES = {k: fmt_esc(k) for k in ESCAPES}
 
 
 def uncolour(text):

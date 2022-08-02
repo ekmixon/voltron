@@ -26,35 +26,34 @@ if HAVE_GDB:
         on the main thread at the next possible time.
         """
         def inner(self, *args, **kwargs):
-            if self.use_post_event:
-                # create ephemeral queue
-                q = Queue()
-
-                # create an invocation that calls the decorated function
-                class Invocation(object):
-                    def __call__(killme):
-                        # when the invocation is called, we call the function and stick the result into the queue
-                        try:
-                            res = func(self, *args, **kwargs)
-                        except Exception as e:
-                            # if we got an exception, just queue that instead
-                            res = e
-                        q.put(res)
-
-                # post this invocation to be called on the main thread at the next opportunity
-                gdb.post_event(Invocation())
-
-                # now we wait until there's something in the queue, which indicates that the invocation has run and return
-                # the result that was pushed onto the queue by the invocation
-                res = q.get()
-
-                # if we got an exception back from the posted event, raise it
-                if isinstance(res, Exception):
-                    raise res
-
-                return res
-            else:
+            if not self.use_post_event:
                 return func(self, *args, **kwargs)
+
+            # create ephemeral queue
+            q = Queue()
+
+            class Invocation(object):
+                def __call__(killme):
+                    # when the invocation is called, we call the function and stick the result into the queue
+                    try:
+                        res = func(self, *args, **kwargs)
+                    except Exception as e:
+                        # if we got an exception, just queue that instead
+                        res = e
+                    q.put(res)
+
+            # post this invocation to be called on the main thread at the next opportunity
+            gdb.post_event(Invocation())
+
+            # now we wait until there's something in the queue, which indicates that the invocation has run and return
+            # the result that was pushed onto the queue by the invocation
+            res = q.get()
+
+            # if we got an exception back from the posted event, raise it
+            if isinstance(res, Exception):
+                raise res
+
+            return res
 
         return inner
 
@@ -125,13 +124,7 @@ if HAVE_GDB:
             target = gdb.selected_inferior()
 
             # get target properties
-            d = {}
-            d["id"] = 0
-            d["num"] = target.num
-
-            # get target state
-            d["state"] = self._state()
-
+            d = {"id": 0, "num": target.num, "state": self._state()}
             # get inferior file (doesn't seem to be available through the API)
             lines = list(filter(lambda x: x != '', gdb.execute('info inferiors', to_string=True).split('\n')))
             if len(lines) > 1:
@@ -189,24 +182,20 @@ if HAVE_GDB:
             arch = self.get_arch()
             log.debug("xxx")
 
-            # if we got 'sp' or 'pc' in registers, change it to whatever the right name is for the current arch
-            if arch in self.reg_names:
-                if 'pc' in registers:
-                    registers.remove('pc')
-                    registers.append(self.reg_names[arch]['pc'])
-                if 'sp' in registers:
-                    registers.remove('sp')
-                    registers.append(self.reg_names[arch]['sp'])
-            else:
-                raise Exception("Unsupported architecture: {}".format(target['arch']))
+            if arch not in self.reg_names:
+                raise Exception(f"Unsupported architecture: {target['arch']}")
 
+            if 'pc' in registers:
+                registers.remove('pc')
+                registers.append(self.reg_names[arch]['pc'])
+            if 'sp' in registers:
+                registers.remove('sp')
+                registers.append(self.reg_names[arch]['sp'])
             # get registers
             if registers != []:
-                regs = {}
-                for reg in registers:
-                    regs[reg] = self.get_register(reg)
+                regs = {reg: self.get_register(reg) for reg in registers}
             else:
-                log.debug('Getting registers for arch {}'.format(arch))
+                log.debug(f'Getting registers for arch {arch}')
                 if arch == "x86_64":
                     regs = self.get_registers_x86_64()
                 elif arch == "x86":
@@ -228,12 +217,11 @@ if HAVE_GDB:
             Get the value of the stack pointer register.
             """
             arch = self.get_arch()
-            if arch in self.reg_names:
-                sp_name = self.reg_names[arch]['sp']
-                sp = self.get_register(sp_name)
-            else:
+            if arch not in self.reg_names:
                 raise UnknownArchitectureException()
 
+            sp_name = self.reg_names[arch]['sp']
+            sp = self.get_register(sp_name)
             return sp_name, sp
 
         @validate_busy
@@ -250,12 +238,11 @@ if HAVE_GDB:
             Implementation of getting PC to avoid recursive decorators
             """
             arch = self.get_arch()
-            if arch in self.reg_names:
-                pc_name = self.reg_names[arch]['pc']
-                pc = self.get_register(pc_name)
-            else:
+            if arch not in self.reg_names:
                 raise UnknownArchitectureException()
 
+            pc_name = self.reg_names[arch]['pc']
+            pc = self.get_register(pc_name)
             return pc_name, pc
 
         @validate_busy
@@ -270,8 +257,7 @@ if HAVE_GDB:
             """
             # read memory
             log.debug('Reading 0x{:x} bytes of memory at 0x{:x}'.format(length, address))
-            memory = bytes(gdb.selected_inferior().read_memory(address, length))
-            return memory
+            return bytes(gdb.selected_inferior().read_memory(address, length))
 
         @validate_busy
         @validate_target
@@ -298,13 +284,10 @@ if HAVE_GDB:
             `count` is the number of instructions to disassemble.
             """
             # make sure we have an address
-            if address == None:
+            if address is None:
                 pc_name, address = self._program_counter(target_id=target_id)
 
-            # disassemble
-            output = gdb.execute('x/{}i 0x{:x}'.format(count, address), to_string=True)
-
-            return output
+            return gdb.execute('x/{}i 0x{:x}'.format(count, address), to_string=True)
 
         @validate_busy
         @validate_target
@@ -313,11 +296,11 @@ if HAVE_GDB:
             """
             Recursively dereference a pointer for display
             """
+            chain = []
             if isinstance(pointer, six.integer_types):
                 fmt = ('<' if self.get_byte_order() == 'little' else '>') + {2: 'H', 4: 'L', 8: 'Q'}[self.get_addr_size()]
 
                 addr = pointer
-                chain = []
                 # recursively dereference
                 while True:
                     try:
@@ -339,16 +322,16 @@ if HAVE_GDB:
                 if len(chain):
                     p, addr = chain[-1]
                     output = gdb.execute('info symbol 0x{:x}'.format(addr), to_string=True)
-                    log.debug('output = {}'.format(output))
+                    log.debug(f'output = {output}')
                     if 'No symbol matches' not in output:
                         chain.append(('symbol', output.strip()))
-                        log.debug("symbol context: {}".format(str(chain[-1])))
+                        log.debug(f"symbol context: {str(chain[-1])}")
                     else:
                         log.debug("no symbol context, trying as a string")
                         mem = gdb.selected_inferior().read_memory(addr, 2)
                         if ord(mem[0]) <= 127 and ord(mem[0]) != 0:
                             a = []
-                            for i in range(0, self.max_string):
+                            for i in range(self.max_string):
                                 mem = gdb.selected_inferior().read_memory(addr + i, 1)
                                 if ord(mem[0]) == 0 or ord(mem[0]) > 127:
                                     break
@@ -358,10 +341,7 @@ if HAVE_GDB:
                                     a.append(str(mem))
                             chain.append(('string', ''.join(a)))
 
-                log.debug("chain: {}".format(chain))
-            else:
-                chain = []
-
+                log.debug(f"chain: {chain}")
             return chain
 
         @post_event
@@ -385,8 +365,10 @@ if HAVE_GDB:
 
             Returns 'intel' or 'att'
             """
-            flavor = re.search('flavor is "(.*)"', gdb.execute("show disassembly-flavor", to_string=True)).group(1)
-            return flavor
+            return re.search(
+                'flavor is "(.*)"',
+                gdb.execute("show disassembly-flavor", to_string=True),
+            )[1]
 
         @post_event
         def breakpoints(self, target_id=0):
@@ -417,14 +399,11 @@ if HAVE_GDB:
                     if b.location.startswith('*'):
                         addr = int(b.location[1:], 16)
                     else:
-                        output = gdb.execute('info addr {}'.format(b.location), to_string=True)
+                        output = gdb.execute(f'info addr {b.location}', to_string=True)
                         m = re.match('.*is at ([^ ]*) .*', output)
                         if not m:
                             m = re.match('.*at address ([^ ]*)\..*', output)
-                        if m:
-                            addr = int(m.group(1), 16)
-                        else:
-                            addr = 0
+                        addr = int(m[1], 16) if m else 0
                 except:
                     addr = 0
 
@@ -485,7 +464,7 @@ if HAVE_GDB:
                     elif "stopped" in output:
                         state = "stopped"
                 except gdb.error as e:
-                    if 'Selected thread is running.' == str(e):
+                    if str(e) == 'Selected thread is running.':
                         state = "running"
             else:
                 state = "invalid"
@@ -517,7 +496,7 @@ if HAVE_GDB:
                 try:
                     vals[reg] = self.get_register_x86_64(reg)
                 except:
-                    log.debug('Failed getting reg: ' + reg)
+                    log.debug(f'Failed getting reg: {reg}')
                     vals[reg] = 'N/A'
 
             # Get flags
@@ -544,7 +523,7 @@ if HAVE_GDB:
             return vals
 
         def get_register_x86_64(self, reg):
-            return int(gdb.parse_and_eval('(long long)$'+reg)) & 0xFFFFFFFFFFFFFFFF
+            return int(gdb.parse_and_eval(f'(long long)${reg}')) & 0xFFFFFFFFFFFFFFFF
 
         def get_registers_x86(self):
             # Get regular registers
@@ -554,7 +533,7 @@ if HAVE_GDB:
                 try:
                     vals[reg] = self.get_register_x86(reg)
                 except:
-                    log.debug('Failed getting reg: ' + reg)
+                    log.debug(f'Failed getting reg: {reg}')
                     vals[reg] = 'N/A'
 
             # Get flags
@@ -581,26 +560,31 @@ if HAVE_GDB:
             return vals
 
         def get_register_x86(self, reg):
-            log.debug('Getting register: ' + reg)
-            return int(gdb.parse_and_eval('(long)$'+reg)) & 0xFFFFFFFF
+            log.debug(f'Getting register: {reg}')
+            return int(gdb.parse_and_eval(f'(long)${reg}')) & 0xFFFFFFFF
 
         def get_registers_sse(self, num=8):
             # the old way of doing this randomly crashed gdb or threw a python exception
             regs = {}
             for line in gdb.execute('info all-registers', to_string=True).split('\n'):
-                m = re.match('^([xyz]mm\d+)\s.*uint128 = (0x[0-9a-f]+)\}', line)
-                if m:
-                    regs[m.group(1)] = int(m.group(2), 16)
+                if m := re.match('^([xyz]mm\d+)\s.*uint128 = (0x[0-9a-f]+)\}', line):
+                    regs[m[1]] = int(m[2], 16)
             return regs
 
         def get_registers_fpu(self):
             regs = {}
             for i in range(8):
-                reg = 'st'+str(i)
+                reg = f'st{str(i)}'
                 try:
-                    regs[reg] = int(gdb.execute('info reg '+reg, to_string=True).split()[-1][2:-1], 16)
+                    regs[reg] = int(
+                        gdb.execute(f'info reg {reg}', to_string=True).split()[-1][
+                            2:-1
+                        ],
+                        16,
+                    )
+
                 except:
-                    log.debug('Failed getting reg: ' + reg)
+                    log.debug(f'Failed getting reg: {reg}')
                     regs[reg] = 'N/A'
             return regs
 
@@ -612,13 +596,13 @@ if HAVE_GDB:
                 try:
                     vals[reg] = self.get_register_arm(reg)
                 except:
-                    log.debug('Failed getting reg: ' + reg)
+                    log.debug(f'Failed getting reg: {reg}')
                     vals[reg] = 'N/A'
             return vals
 
         def get_register_arm(self, reg):
-            log.debug('Getting register: ' + reg)
-            return int(gdb.parse_and_eval('(long)$'+reg)) & 0xFFFFFFFF
+            log.debug(f'Getting register: {reg}')
+            return int(gdb.parse_and_eval(f'(long)${reg}')) & 0xFFFFFFFF
 
         def get_registers_powerpc(self):
             log.debug('Getting registers')
@@ -633,13 +617,13 @@ if HAVE_GDB:
                 try:
                     vals[reg] = self.get_register_powerpc(reg)
                 except:
-                    log.debug('Failed getting reg: ' + reg)
+                    log.debug(f'Failed getting reg: {reg}')
                     vals[reg] = 'N/A'
             return vals
 
         def get_register_powerpc(self, reg):
-            log.debug('Getting register: ' + reg)
-            return int(gdb.parse_and_eval('(long)$'+reg)) & 0xFFFFFFFF
+            log.debug(f'Getting register: {reg}')
+            return int(gdb.parse_and_eval(f'(long)${reg}')) & 0xFFFFFFFF
 
         def get_next_instruction(self):
             return self.get_disasm().split('\n')[0].split(':')[1].strip()
@@ -648,7 +632,11 @@ if HAVE_GDB:
             try:
                 arch = gdb.selected_frame().architecture().name()
             except:
-                arch = re.search('\(currently (.*)\)', gdb.execute('show architecture', to_string=True)).group(1)
+                arch = re.search(
+                    '\(currently (.*)\)',
+                    gdb.execute('show architecture', to_string=True),
+                )[1]
+
             return self.archs[arch]
 
         def get_addr_size(self):

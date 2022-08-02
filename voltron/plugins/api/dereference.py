@@ -25,13 +25,13 @@ class APIDerefRequest(APIRequest):
     def dispatch(self):
         try:
             output = voltron.debugger.dereference(self.pointer)
-            log.debug('output: {}'.format(str(output)))
+            log.debug(f'output: {str(output)}')
             res = APIDerefResponse()
             res.output = output
         except NoSuchTargetException:
             res = APINoSuchTargetErrorResponse()
         except Exception as e:
-            msg = "Exception dereferencing pointer: {}".format(repr(e))
+            msg = f"Exception dereferencing pointer: {repr(e)}"
             log.exception(msg)
             res = APIGenericErrorResponse(msg)
 

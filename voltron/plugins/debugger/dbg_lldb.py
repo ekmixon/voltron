@@ -100,9 +100,7 @@ if HAVE_LLDB:
             t = self.host.GetTargetAtIndex(target_id)
 
             # get target properties
-            d = {}
-            d["id"] = target_id
-            d["state"] = self.host.StateAsCString(t.process.GetState())
+            d = {"id": target_id, "state": self.host.StateAsCString(t.process.GetState())}
             d["file"] = t.GetExecutable().fullpath
             try:
                 d["arch"], _, _ = self.normalize_triple(t.triple)
@@ -139,20 +137,14 @@ if HAVE_LLDB:
                 }
             ]
             """
-            # initialise returned data
-            targets = []
-
             # if we didn't get any target IDs, get info for all targets
             if not target_ids:
                 n = self.host.GetNumTargets()
                 target_ids = range(n)
 
             # iterate through targets
-            log.debug("Getting info for {} targets".format(len(target_ids)))
-            for i in target_ids:
-                targets.append(self._target(i))
-
-            return targets
+            log.debug(f"Getting info for {len(target_ids)} targets")
+            return [self._target(i) for i in target_ids]
 
         @validate_target
         @lock_host
@@ -163,9 +155,7 @@ if HAVE_LLDB:
             `target_id` is a target ID (or None for the first target)
             """
             target = self.host.GetTargetAtIndex(target_id)
-            state = self.host.StateAsCString(target.process.GetState())
-
-            return state
+            return self.host.StateAsCString(target.process.GetState())
 
         @validate_busy
         @validate_target
@@ -189,17 +179,15 @@ if HAVE_LLDB:
             except:
                 raise NoSuchThreadException()
 
-            # if we got 'sp' or 'pc' in registers, change it to whatever the right name is for the current arch
-            if t_info['arch'] in self.reg_names:
-                if 'pc' in registers:
-                    registers.remove('pc')
-                    registers.append(self.reg_names[t_info['arch']]['pc'])
-                if 'sp' in registers:
-                    registers.remove('sp')
-                    registers.append(self.reg_names[t_info['arch']]['sp'])
-            else:
-                raise Exception("Unsupported architecture: {}".format(t_info['arch']))
+            if t_info['arch'] not in self.reg_names:
+                raise Exception(f"Unsupported architecture: {t_info['arch']}")
 
+            if 'pc' in registers:
+                registers.remove('pc')
+                registers.append(self.reg_names[t_info['arch']]['pc'])
+            if 'sp' in registers:
+                registers.remove('sp')
+                registers.append(self.reg_names[t_info['arch']]['sp'])
             # get the registers
             regs = thread.GetFrameAtIndex(0).GetRegisters()
 
@@ -217,12 +205,25 @@ if HAVE_LLDB:
                         reg = None
                 elif reg.num_children > 0:
                     try:
-                        children = []
-                        for i in xrange(reg.GetNumChildren()):
-                            children.append(int(reg.GetChildAtIndex(i, lldb.eNoDynamicValues, True).value, 16))
+                        children = [
+                            int(
+                                reg.GetChildAtIndex(
+                                    i, lldb.eNoDynamicValues, True
+                                ).value,
+                                16,
+                            )
+                            for i in xrange(reg.GetNumChildren())
+                        ]
+
                         if t_info['byte_order'] == 'big':
                             children = list(reversed(children))
-                        val = int(codecs.encode(struct.pack('{}B'.format(len(children)), *children), 'hex'), 16)
+                        val = int(
+                            codecs.encode(
+                                struct.pack(f'{len(children)}B', *children), 'hex'
+                            ),
+                            16,
+                        )
+
                     except:
                         pass
                 if registers == [] or reg.name in registers:
@@ -244,13 +245,11 @@ if HAVE_LLDB:
             regs = self.registers(target_id=target_id, thread_id=thread_id)
             target = self._target(target_id=target_id)
 
-            # get stack pointer register
-            if target['arch'] in self.reg_names:
-                sp_name = self.reg_names[target['arch']]['sp']
-                sp = regs[sp_name]
-            else:
-                raise Exception("Unsupported architecture: {}".format(target['arch']))
+            if target['arch'] not in self.reg_names:
+                raise Exception(f"Unsupported architecture: {target['arch']}")
 
+            sp_name = self.reg_names[target['arch']]['sp']
+            sp = regs[sp_name]
             return (sp_name, sp)
 
         @validate_busy
@@ -267,13 +266,11 @@ if HAVE_LLDB:
             regs = self.registers(target_id=target_id, thread_id=thread_id)
             target = self._target(target_id=target_id)
 
-            # get stack pointer register
-            if target['arch'] in self.reg_names:
-                pc_name = self.reg_names[target['arch']]['pc']
-                pc = regs[pc_name]
-            else:
-                raise Exception("Unsupported architecture: {}".format(target['arch']))
+            if target['arch'] not in self.reg_names:
+                raise Exception(f"Unsupported architecture: {target['arch']}")
 
+            pc_name = self.reg_names[target['arch']]['pc']
+            pc = regs[pc_name]
             return (pc_name, pc)
 
         @validate_busy
@@ -297,7 +294,7 @@ if HAVE_LLDB:
             memory = target.process.ReadMemory(address, length, error)
 
             if not error.Success():
-                raise Exception("Failed reading memory: {}".format(error.GetCString()))
+                raise Exception(f"Failed reading memory: {error.GetCString()}")
 
             return memory
 
@@ -336,7 +333,7 @@ if HAVE_LLDB:
                 pc_name, address = self.program_counter(target_id=target_id)
 
             # disassemble
-            output = self.command('disassemble -s {} -c {}'.format(address, count))
+            output = self.command(f'disassemble -s {address} -c {count}')
             output = uncolour(output)
 
             return output
@@ -355,18 +352,17 @@ if HAVE_LLDB:
             chain = []
 
             # recursively dereference
-            for i in range(0, MAX_DEREF):
+            for _ in range(MAX_DEREF):
                 ptr = t.process.ReadPointerFromMemory(addr, error)
-                if error.Success():
-                    if ptr in chain:
-                        chain.append(('circular', 'circular'))
-                        break
-                    chain.append(('pointer', addr))
-                    addr = ptr
-                else:
+                if not error.Success():
                     break
 
-            if len(chain) == 0:
+                if ptr in chain:
+                    chain.append(('circular', 'circular'))
+                    break
+                chain.append(('pointer', addr))
+                addr = ptr
+            if not chain:
                 raise InvalidPointerError("0x{:X} is not a valid pointer".format(pointer))
 
             # get some info for the last pointer
@@ -379,12 +375,12 @@ if HAVE_LLDB:
                 fstart = ctx.GetSymbol().GetStartAddress().GetLoadAddress(t)
                 offset = addr - fstart
                 chain.append(('symbol', '{} + 0x{:X}'.format(ctx.GetSymbol().name, offset)))
-                log.debug("symbol context: {}".format(str(chain[-1])))
+                log.debug(f"symbol context: {str(chain[-1])}")
             else:
                 # no symbol context found, see if it looks like a string
                 log.debug("no symbol context")
                 s = t.process.ReadCStringFromMemory(addr, 256, error)
-                for i in range(0, len(s)):
+                for i in range(len(s)):
                     if ord(s[i]) >= 128:
                         s = s[:i]
                         break
@@ -400,18 +396,15 @@ if HAVE_LLDB:
 
             `command` is the command string to execute.
             """
-            # for some reason this doesn't work - figure it out
-            if command:
-                res = lldb.SBCommandReturnObject()
-                ci = self.host.GetCommandInterpreter()
-                ci.HandleCommand(str(command), res, False)
-                if res.Succeeded():
-                    output = res.GetOutput()
-                    return output.strip() if output else ""
-                else:
-                    raise Exception(res.GetError().strip())
-            else:
+            if not command:
                 raise Exception("No command specified")
+            res = lldb.SBCommandReturnObject()
+            ci = self.host.GetCommandInterpreter()
+            ci.HandleCommand(str(command), res, False)
+            if not res.Succeeded():
+                raise Exception(res.GetError().strip())
+            output = res.GetOutput()
+            return output.strip() if output else ""
 
         @lock_host
         def disassembly_flavor(self):
@@ -423,14 +416,13 @@ if HAVE_LLDB:
             res = lldb.SBCommandReturnObject()
             ci = self.host.GetCommandInterpreter()
             ci.HandleCommand('settings show target.x86-disassembly-flavor', res)
-            if res.Succeeded():
-                output = res.GetOutput().strip()
-                flavor = output.split()[-1]
-                if flavor == 'default':
-                    flavor = 'att'
-            else:
+            if not res.Succeeded():
                 raise Exception(res.GetError().strip())
 
+            output = res.GetOutput().strip()
+            flavor = output.split()[-1]
+            if flavor == 'default':
+                flavor = 'att'
             return flavor
 
         @validate_busy
@@ -460,11 +452,11 @@ if HAVE_LLDB:
             t = self.host.GetTargetAtIndex(target_id)
             s = lldb.SBStream()
 
-            for i in range(0, t.GetNumBreakpoints()):
+            for i in range(t.GetNumBreakpoints()):
                 b = t.GetBreakpointAtIndex(i)
                 locations = []
 
-                for j in range(0, b.GetNumLocations()):
+                for j in range(b.GetNumLocations()):
                     loc = b.GetLocationAtIndex(j)
                     s.Clear()
                     loc.GetAddress().GetDescription(s)
@@ -577,7 +569,6 @@ if HAVE_LLDB:
                         self.hook_idx = int(output.split()[2][1:])
                     except Exception as e:
                         log.warning(f"Exception when saving hook index for unregistering. {e}")
-                        pass
                 self.registered = True
                 if not quiet:
                     print("Registered stop-hook")
@@ -586,7 +577,7 @@ if HAVE_LLDB:
                     print("No targets")
 
         def unregister_hooks(self):
-            self.adaptor.command('target stop-hook delete {}'.format(self.hook_idx if self.hook_idx else ''))
+            self.adaptor.command(f"target stop-hook delete {self.hook_idx or ''}")
             self.registered = False
 
     class LLDBAdaptorPlugin(DebuggerAdaptorPlugin):

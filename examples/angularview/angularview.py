@@ -21,7 +21,7 @@ class FormatDisassemblyRequest(APIRequest):
             res = FormatDisassemblyResponse(
                 disassembly=pygments.highlight(self.disassembly.strip(), LLDBIntelLexer(), pygments.formatters.HtmlFormatter()))
         except Exception as e:
-            msg = "Exception formatting disassembly: {}".format(repr(e))
+            msg = f"Exception formatting disassembly: {repr(e)}"
             log.exception(msg)
             res = APIGenericErrorResponse(msg)
 

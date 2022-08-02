@@ -261,7 +261,7 @@ class APIMessage(object):
         """
         required_fields = list(filter(lambda x: self._fields[x], self._fields.keys()))
         for field in (self._top_fields + required_fields):
-            if not hasattr(self, field) or hasattr(self, field) and getattr(self, field) == None:
+            if not hasattr(self, field) or getattr(self, field) is None:
                 raise MissingFieldError(field)
 
 
@@ -344,12 +344,7 @@ class APIResponse(APIMessage):
         return self.status == 'error'
 
     def __repr__(self):
-        return "<%s: success = %s, error = %s, body: %s>" % (
-                str(self.__class__),
-                self.is_success,
-                self.is_error,
-                {f: getattr(self, f) for f in self._top_fields + list(self._fields.keys())}
-        )
+        return f"<{str(self.__class__)}: success = {self.is_success}, error = {self.is_error}, body: {{f: getattr(self, f) for f in self._top_fields + list(self._fields.keys())}}>"
 
 
 class APISuccessResponse(APIResponse):

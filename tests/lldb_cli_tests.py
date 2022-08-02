@@ -71,9 +71,9 @@ def start_debugger(do_break=True):
             "sys.path.append('/home/travis/virtualenv/python3.4.3/lib/python3.4/site-packages')",
             "sys.path.append('/home/travis/virtualenv/python3.3.6/lib/python3.3/site-packages')",
             "sys.path.append('/home/travis/virtualenv/python2.7.10/lib/python2.7/site-packages')"])))
-        p.sendline("command script import {}".format(tmpname))
+        p.sendline(f"command script import {tmpname}")
 
-    print("pid == {}".format(p.pid))
+    print(f"pid == {p.pid}")
     p.sendline("settings set target.x86-disassembly-flavor intel")
     p.sendline("command script import voltron/entry.py")
     time.sleep(2)

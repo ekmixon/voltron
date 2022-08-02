@@ -93,9 +93,13 @@ class MemoryView(TerminalView):
                 for i, x in enumerate(six.iterbytes(chunk)):
                     n = "%02X" % x
                     token = Text if x else Comment
-                    if self.args.track and self.last_memory and self.last_address == m_res.address:
-                        if x != six.indexbytes(self.last_memory, c + i):
-                            token = Error
+                    if (
+                        self.args.track
+                        and self.last_memory
+                        and self.last_address == m_res.address
+                        and x != six.indexbytes(self.last_memory, c + i)
+                    ):
+                        token = Error
                     byte_array.append((token, n))
 
                 if self.args.words:
@@ -103,8 +107,7 @@ class MemoryView(TerminalView):
                         byte_array_words = [byte_array[i:i+ target['addr_size']] for i in range(0, bytes_per_chunk, target['addr_size'])]
                         for word in byte_array_words:
                             word.reverse()
-                            for x in word:
-                                yield x
+                            yield from word
                             yield (Text, ' ')
                 else:
                     for x in byte_array:
@@ -115,9 +118,13 @@ class MemoryView(TerminalView):
                 yield (Punctuation, '| ')
                 for i, x in enumerate(six.iterbytes(chunk)):
                     token = String.Char if x else Comment
-                    if self.args.track and self.last_memory and self.last_address == m_res.address:
-                        if x != six.indexbytes(self.last_memory, c + i):
-                            token = Error
+                    if (
+                        self.args.track
+                        and self.last_memory
+                        and self.last_address == m_res.address
+                        and x != six.indexbytes(self.last_memory, c + i)
+                    ):
+                        token = Error
                     yield (token, ((x <= 127 and self.printable_filter[x]) or '.'))
                 yield (Punctuation, ' | ')
 
@@ -125,20 +132,20 @@ class MemoryView(TerminalView):
                 if self.args.deref:
                     chain = m_res.deref.pop(0)
                     for i, (t, item) in enumerate(chain):
-                        if t == "pointer":
+                        if t == "circular":
+                            yield (Text, '(circular)')
+                        elif t == "pointer":
                             yield (Number.Hex, self.format_address(item, size=target['addr_size'], pad=False))
                         elif t == "string":
                             for r in ['\n', '\r', '\v']:
                                 item = item.replace(r, '\\{:x}'.format(ord(r)))
                             yield (String.Double, '"' + item + '"')
+                        elif t == "symbol":
+                            yield (Name.Function, f'`{item}`')
                         elif t == "unicode":
                             for r in ['\n', '\r', '\v']:
                                 item = item.replace(r, '\\{:x}'.format(ord(r)))
                             yield (String.Double, 'u"' + item + '"')
-                        elif t == "symbol":
-                            yield (Name.Function, '`' + item + '`')
-                        elif t == "circular":
-                            yield (Text, '(circular)')
                         if i < len(chain) - 1:
                             yield (Punctuation, ' => ')
 
@@ -164,7 +171,7 @@ class MemoryView(TerminalView):
                 self.body = '\n'.join(reversed(lines)).strip() if self.args.reverse else '\n'.join(lines)
                 self.info = '[0x{0:0=4x}:'.format(len(m_res.memory)) + self.config.format.addr_format.format(m_res.address) + ']'
             else:
-                log.error("Error reading memory: {}".format(m_res.message))
+                log.error(f"Error reading memory: {m_res.message}")
                 self.body = pygments.format([(Error, m_res.message)], f)
                 self.info = ''
 
@@ -181,7 +188,7 @@ class MemoryView(TerminalView):
         super(MemoryView, self).render(results)
 
     def format_address(self, address, size=8, pad=True, prefix='0x'):
-        fmt = '{:' + ('0=' + str(size * 2) if pad else '') + 'X}'
+        fmt = '{:' + (f'0={str(size * 2)}' if pad else '') + 'X}'
         addr_str = fmt.format(address)
         if prefix:
             addr_str = prefix + addr_str

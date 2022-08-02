@@ -69,24 +69,24 @@ class PluginManager(object):
         if hasattr(plugin, 'initialise'):
             plugin.initialise()
         if self.valid_api_plugin(plugin):
-            log.debug("Registering API plugin: {}".format(plugin))
+            log.debug(f"Registering API plugin: {plugin}")
             self._api_plugins[plugin.request] = plugin()
         elif self.valid_debugger_plugin(plugin):
-            log.debug("Registering debugger plugin: {}".format(plugin))
+            log.debug(f"Registering debugger plugin: {plugin}")
             self._debugger_plugins[plugin.host] = plugin()
         elif self.valid_view_plugin(plugin):
-            log.debug("Registering view plugin: {}".format(plugin))
+            log.debug(f"Registering view plugin: {plugin}")
             self._view_plugins[plugin.name] = plugin()
         elif self.valid_web_plugin(plugin):
-            log.debug("Registering web plugin: {}".format(plugin))
+            log.debug(f"Registering web plugin: {plugin}")
             self._web_plugins[plugin.name] = plugin()
         elif self.valid_command_plugin(plugin):
-            log.debug("Registering command plugin: {}".format(plugin))
+            log.debug(f"Registering command plugin: {plugin}")
             self._command_plugins[plugin.name] = plugin()
             if voltron.debugger:
                 voltron.debugger.register_command_plugin(plugin.name, plugin.command_class)
         else:
-            log.debug("Ignoring invalid plugin: {}".format(plugin))
+            log.debug(f"Ignoring invalid plugin: {plugin}")
 
     def valid_api_plugin(self, plugin):
         """
@@ -95,13 +95,19 @@ class PluginManager(object):
 
         `plugin` is a subclass of scruffy's Plugin class.
         """
-        if (issubclass(plugin, APIPlugin)       and
-            hasattr(plugin, 'plugin_type')      and plugin.plugin_type == 'api' and
-            hasattr(plugin, 'request')          and plugin.request != None and
-            hasattr(plugin, 'request_class')    and plugin.request_class != None and
-            hasattr(plugin, 'response_class')   and plugin.response_class != None):
-            return True
-        return False
+        return bool(
+            (
+                issubclass(plugin, APIPlugin)
+                and hasattr(plugin, 'plugin_type')
+                and plugin.plugin_type == 'api'
+                and hasattr(plugin, 'request')
+                and plugin.request != None
+                and hasattr(plugin, 'request_class')
+                and plugin.request_class != None
+                and hasattr(plugin, 'response_class')
+                and plugin.response_class != None
+            )
+        )
 
     def valid_debugger_plugin(self, plugin):
         """
@@ -110,11 +116,15 @@ class PluginManager(object):
 
         `plugin` is a subclass of scruffy's Plugin class.
         """
-        if (issubclass(plugin, DebuggerAdaptorPlugin) and
-            hasattr(plugin, 'plugin_type')      and plugin.plugin_type == 'debugger' and
-            hasattr(plugin, 'host')             and plugin.host != None):
-            return True
-        return False
+        return bool(
+            (
+                issubclass(plugin, DebuggerAdaptorPlugin)
+                and hasattr(plugin, 'plugin_type')
+                and plugin.plugin_type == 'debugger'
+                and hasattr(plugin, 'host')
+                and plugin.host != None
+            )
+        )
 
     def valid_view_plugin(self, plugin):
         """
@@ -123,12 +133,17 @@ class PluginManager(object):
 
         `plugin` is a subclass of scruffy's Plugin class.
         """
-        if (issubclass(plugin, ViewPlugin)      and
-            hasattr(plugin, 'plugin_type')      and plugin.plugin_type == 'view' and
-            hasattr(plugin, 'name')             and plugin.name != None and
-            hasattr(plugin, 'view_class')       and plugin.view_class != None):
-            return True
-        return False
+        return bool(
+            (
+                issubclass(plugin, ViewPlugin)
+                and hasattr(plugin, 'plugin_type')
+                and plugin.plugin_type == 'view'
+                and hasattr(plugin, 'name')
+                and plugin.name != None
+                and hasattr(plugin, 'view_class')
+                and plugin.view_class != None
+            )
+        )
 
     def valid_web_plugin(self, plugin):
         """
@@ -137,11 +152,15 @@ class PluginManager(object):
 
         `plugin` is a subclass of scruffy's Plugin class.
         """
-        if (issubclass(plugin, WebPlugin)      and
-            hasattr(plugin, 'plugin_type')      and plugin.plugin_type == 'web' and
-            hasattr(plugin, 'name')             and plugin.name != None):
-            return True
-        return False
+        return bool(
+            (
+                issubclass(plugin, WebPlugin)
+                and hasattr(plugin, 'plugin_type')
+                and plugin.plugin_type == 'web'
+                and hasattr(plugin, 'name')
+                and plugin.name != None
+            )
+        )
 
     def valid_command_plugin(self, plugin):
         """
@@ -150,11 +169,15 @@ class PluginManager(object):
 
         `plugin` is a subclass of scruffy's Plugin class.
         """
-        if (issubclass(plugin, CommandPlugin)   and
-            hasattr(plugin, 'plugin_type')      and plugin.plugin_type == 'command' and
-            hasattr(plugin, 'name')             and plugin.name != None):
-            return True
-        return False
+        return bool(
+            (
+                issubclass(plugin, CommandPlugin)
+                and hasattr(plugin, 'plugin_type')
+                and plugin.plugin_type == 'command'
+                and hasattr(plugin, 'name')
+                and plugin.name != None
+            )
+        )
 
     def api_plugin_for_request(self, request=None):
         """

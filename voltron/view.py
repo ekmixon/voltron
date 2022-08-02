@@ -45,7 +45,7 @@ class AliasedSubParsersAction(argparse._SubParsersAction):
         def __init__(self, name, aliases, help):
             dest = name
             if aliases:
-                dest += ' (%s)' % ','.join(aliases)
+                dest += f" ({','.join(aliases)})"
             sup = super(AliasedSubParsersAction._AliasedPseudoAction, self)
             sup.__init__(option_strings=[], dest=dest, help=help)
 
@@ -92,10 +92,9 @@ class AnsiString(object):
             else:
                 self.chars.append(''.join(ansi) + char)
                 ansi = []
-        if len(self.chars) > 2:
-            if self.chars[-1][0] == '\033':
-                self.chars[-2] = self.chars[-2] + self.chars[-1]
-                self.chars = self.chars[:-1]
+        if len(self.chars) > 2 and self.chars[-1][0] == '\033':
+            self.chars[-2] = self.chars[-2] + self.chars[-1]
+            self.chars = self.chars[:-1]
 
     def __getitem__(self, key):
         if isinstance(key, slice):
@@ -117,9 +116,9 @@ def requires_async(func):
     def inner(self, *args, **kwargs):
         if not self.block:
             return func(self, *args, **kwargs)
-        else:
-            sys.stdout.write('\a')
-            sys.stdout.flush()
+        sys.stdout.write('\a')
+        sys.stdout.flush()
+
     return inner
 
 
@@ -155,14 +154,19 @@ class VoltronView (object):
     @classmethod
     def configure_subparser(cls, subparsers):
         if hasattr(cls._plugin, 'aliases'):
-            sp = subparsers.add_parser(cls.view_type, aliases=cls._plugin.aliases, help='{} view'.format(cls.view_type))
+            sp = subparsers.add_parser(
+                cls.view_type,
+                aliases=cls._plugin.aliases,
+                help=f'{cls.view_type} view',
+            )
+
         else:
-            sp = subparsers.add_parser(cls.view_type, help='{} view'.format(cls.view_type))
+            sp = subparsers.add_parser(cls.view_type, help=f'{cls.view_type} view')
         VoltronView.add_generic_arguments(sp)
         sp.set_defaults(func=cls)
 
     def __init__(self, args={}, loaded_config={}):
-        log.debug('Loading view: ' + self.__class__.__name__)
+        log.debug(f'Loading view: {self.__class__.__name__}')
         self.client = Client(url=voltron.config.view.api_url)
         self.pm = None
         self.args = args
@@ -177,8 +181,8 @@ class VoltronView (object):
         # Build configuration
         self.build_config()
 
-        log.debug("View config: " + pprint.pformat(self.config))
-        log.debug("Args: " + str(self.args))
+        log.debug(f"View config: {pprint.pformat(self.config)}")
+        log.debug(f"Args: {str(self.args)}")
 
         # Let subclass do any setup it needs to do
         self.setup()
@@ -201,7 +205,7 @@ class VoltronView (object):
 
         # Add view-specific config
         self.config.type = self.view_type
-        name = self.view_type + '_view'
+        name = f'{self.view_type}_view'
         if 'view' in self.loaded_config and name in self.loaded_config.view:
             self.config.update(self.loaded_config.view[name])
 
@@ -227,7 +231,7 @@ class VoltronView (object):
     def render(self, results):
         log.warning('Might wanna implement render() in this view eh')
 
-    def do_render(error=None):
+    def do_render(self):
         pass
 
     def should_reconnect(self):
@@ -325,9 +329,9 @@ class TerminalView (VoltronView):
         if colour:
             s += fmt_esc(colour)
         if background:
-            s += fmt_esc('b_' + background)
+            s += fmt_esc(f'b_{background}')
         if attrs != []:
-            s += ''.join(map(lambda x: fmt_esc('a_' + x), attrs))
+            s += ''.join(map(lambda x: fmt_esc(f'a_{x}'), attrs))
         s += text
         s += fmt_esc('reset')
         return s
@@ -347,17 +351,13 @@ class TerminalView (VoltronView):
         r = self.colour(r, c.label_right.colour, c.label_right.bg_colour, c.label_right.attrs)
         p = self.colour(p, c.colour, c.bg_colour, c.attrs)
 
-        # Build
-        data = l + (width - llen - rlen) * p + r
-
-        return data
+        return l + (width - llen - rlen) * p + r
 
     def pad_body(self):
         height, width = self.window_size()
         lines = self.fmt_body.split('\n')
         pad = self.body_height() - len(lines)
-        if pad < 0:
-            pad = 0
+        pad = max(pad, 0)
         self.fmt_body += int(pad) * '\n'
 
     def truncate_body(self):

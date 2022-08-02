@@ -254,7 +254,7 @@ def test_test_response_validation_succeed_by_assign():
     try:
         msg.validate()
     except MissingFieldError as e:
-        print(str(e))
+        print(e)
         exception = True
     assert not exception
 
@@ -271,7 +271,7 @@ class APIEncodeMsg(APIMessage):
 
 def test_encode_fields():
     msg = APIEncodeMsg()
-    msg.enc = six.b('').join([six.int2byte(x) for x in range(0x0, 0xff)])
+    msg.enc = six.b('').join([six.int2byte(x) for x in range(0xff)])
     assert msg.to_dict()['data']['enc'] == six.text_type('AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+')
     assert msg.to_json() == '{"data": {"enc": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+"}, "type": null}'
 
